@@ -9,5 +9,4 @@ public class MorpheusBackendApplication {
     public static void main(String[] args) {
         SpringApplication.run(MorpheusBackendApplication.class, args);
     }
-
 }
