@@ -1,0 +1,19 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Quick Login Test</title>
+<h3>Login Test</h3>
+<input id="u" placeholder="username" value="anka">
+<input id="p" placeholder="password" value="123456" type="password">
+<button onclick="login()">Login</button>
+<pre id="out"></pre>
+<script>
+    async function login() {
+        const body = { username: document.getElementById('u').value, password: document.getElementById('p').value };
+        const res = await fetch('/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        document.getElementById('out').textContent = await res.text();
+    }
+</script>
