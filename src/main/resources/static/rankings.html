@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>实时战斗榜单</title>
+    <style>
+        :root { --bg:#0b1020; --card:#101935; --muted:#8aa0c7; --accent:#66d9ef; --ok:#9eff8a; }
+        *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial}
+        body{margin:0;background:linear-gradient(180deg,#0b1020,#0e1430);}
+        .wrap{max-width:960px;margin:32px auto;padding:0 16px;}
+        .card{background:var(--card); border:1px solid #1e2a55; border-radius:16px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,.25)}
+        h1{color:#fff;margin:0 0 12px;font-weight:700;letter-spacing:.2px}
+        .sub{color:var(--muted);margin-bottom:16px}
+        .controls{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 16px}
+        select,button,input{background:#0c1430;color:#e8f0ff;border:1px solid #223060;border-radius:10px;padding:10px 12px}
+        button{cursor:pointer}
+        table{width:100%;border-collapse:collapse;margin-top:8px;overflow:hidden;border-radius:12px}
+        thead th{position:sticky;top:0;background:#0f1b3f;color:#cfe0ff;text-align:left;padding:12px;border-bottom:1px solid #263a70}
+        tbody td{padding:12px;border-bottom:1px solid #1b2a55;color:#eaf2ff}
+        tbody tr:hover{background:#0f1b3f55}
+        .rank{color:var(--accent);font-weight:700}
+        .ok{color:var(--ok)}
+        .footer{display:flex;justify-content:space-between;align-items:center;margin-top:14px;color:var(--muted);font-size:14px}
+        .badge{background:#0f1b3f;border:1px solid #27407a;color:#a6c1ff;padding:4px 8px;border-radius:999px}
+        .err{color:#ff9aa2}
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <div class="card">
+        <h1>实时战斗榜单</h1>
+        <div class="sub">展示最近时间窗口内的总伤害（近似 DPS 视角）。</div>
+
+        <div class="controls">
+            <label>
+                时间窗口：
+                <select id="window">
+                    <option value="10000">最近 10 秒</option>
+                    <option value="60000" selected>最近 1 分钟</option>
+                    <option value="300000">最近 5 分钟</option>
+                    <option value="3600000">最近 1 小时</option>
+                    <option value="999999999">全部（长窗口）</option>
+                </select>
+            </label>
+            <label>
+                自动刷新：
+                <select id="refresh">
+                    <option value="0">关闭</option>
+                    <option value="2000">每 2 秒</option>
+                    <option value="5000" selected>每 5 秒</option>
+                    <option value="10000">每 10 秒</option>
+                </select>
+            </label>
+            <button id="reloadBtn">立即刷新</button>
+            <span id="status" class="badge">等待加载...</span>
+        </div>
+
+        <table>
+            <thead>
+            <tr>
+                <th style="width:80px">名次</th>
+                <th>玩家</th>
+                <th style="width:160px">总伤害</th>
+                <th style="width:220px">最近战斗时间</th>
+            </tr>
+            </thead>
+            <tbody id="tbody">
+            <tr><td colspan="4" style="text-align:center;color:#9bb4e3;padding:22px">正在加载...</td></tr>
+            </tbody>
+        </table>
+
+        <div class="footer">
+            <div>榜单生成时间：<span id="ts" class="ok">--</span></div>
+            <div><span id="err" class="err"></span></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const tbody = document.getElementById('tbody');
+    const tsEl = document.getElementById('ts');
+    const statusEl = document.getElementById('status');
+    const errEl = document.getElementById('err');
+    const windowSel = document.getElementById('window');
+    const refreshSel = document.getElementById('refresh');
+    const reloadBtn = document.getElementById('reloadBtn');
+
+    let timer = null;
+
+    function fmtTime(ms){
+        if(!ms) return '—';
+        const d = new Date(ms);
+        const pad = n => String(n).padStart(2,'0');
+        return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} `+
+            `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+
+    async function load(){
+        const windowMs = windowSel.value;
+        const url = `/events/rankings?windowMs=${encodeURIComponent(windowMs)}`;
+        statusEl.textContent = '加载中...';
+        errEl.textContent = '';
+        try{
+            const res = await fetch(url, {headers: {"Accept":"application/json"}});
+            if(!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+
+            // 兼容两种返回：1) {timestamp, rankings: [...]}; 2) 直接数组
+            const rankings = Array.isArray(data) ? data : (data.rankings || []);
+            const ts = Array.isArray(data) ? Date.now() : (data.timestamp || Date.now());
+
+            tsEl.textContent = fmtTime(ts);
+
+            if(rankings.length === 0){
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#9bb4e3;padding:22px">该时间窗口内没有数据</td></tr>`;
+            }else{
+                tbody.innerHTML = rankings.map((r, idx) => {
+                    const player = r.playerId ?? r.player ?? '—';
+                    const total = r.totalDamage ?? r.damage ?? 0;
+                    const last = r.lastTimestamp ?? r.ts ?? null;
+                    return `<tr>
+              <td class="rank">#${idx+1}</td>
+              <td>${player}</td>
+              <td>${total}</td>
+              <td>${fmtTime(last)}</td>
+            </tr>`;
+                }).join('');
+            }
+            statusEl.textContent = '已更新';
+        }catch(e){
+            statusEl.textContent = '加载失败';
+            errEl.textContent = e.message;
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#ff9aa2;padding:22px">加载失败：${e.message}</td></tr>`;
+        }
+    }
+
+    function applyAutoRefresh(){
+        if(timer){ clearInterval(timer); timer = null; }
+        const ms = parseInt(refreshSel.value, 10);
+        if(ms > 0){
+            timer = setInterval(load, ms);
+        }
+    }
+
+    reloadBtn.addEventListener('click', load);
+    windowSel.addEventListener('change', load);
+    refreshSel.addEventListener('change', () => { applyAutoRefresh(); load(); });
+
+    // 初始加载 & 启动自动刷新
+    load();
+    applyAutoRefresh();
+</script>
+</body>
+</html>

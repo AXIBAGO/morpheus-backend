@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>用户登录</title>
+    <title>用户注册</title>
     <style>
         body {
             font-family: "Segoe UI", sans-serif;
-            background-color: #e6f2ff;
+            background-color: #f2f2f2;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -14,7 +14,7 @@
         }
         .container {
             background: white;
-            padding: 25px 35px;
+            padding: 20px 30px;
             border-radius: 12px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
             width: 320px;
@@ -29,12 +29,11 @@
             margin: 8px 0;
             border: 1px solid #ccc;
             border-radius: 6px;
-            font-size: 14px;
         }
         button {
             width: 100%;
             padding: 10px;
-            background-color: #2196F3;
+            background-color: #4CAF50;
             border: none;
             color: white;
             font-size: 16px;
@@ -42,37 +41,30 @@
             cursor: pointer;
         }
         button:hover {
-            background-color: #1976D2;
+            background-color: #45a049;
         }
         .msg {
             margin-top: 10px;
             text-align: center;
             font-weight: bold;
         }
-        .link {
-            text-align: center;
-            margin-top: 10px;
-        }
     </style>
 </head>
 <body>
 <div class="container">
-    <h2>用户登录</h2>
+    <h2>注册新用户</h2>
     <input id="username" placeholder="用户名">
     <input id="password" type="password" placeholder="密码">
-    <button onclick="login()">登录</button>
+    <button onclick="register()">注册</button>
     <div id="message" class="msg"></div>
-    <div class="link">
-        <a href="/register.html">没有账号？去注册</a>
-    </div>
 </div>
 
 <script>
-    async function login() {
+    async function register() {
         const username = document.getElementById("username").value;
         const password = document.getElementById("password").value;
 
-        const response = await fetch("/auth/login", {
+        const response = await fetch("/auth/register", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ username, password })
